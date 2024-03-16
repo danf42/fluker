@@ -15,7 +15,7 @@ The results are printed to the screen and written to a file.  The file is useful
 1. Install the required Python modules
 
     ```bash
-    python -m pip install -r requirements.txt`
+    python -m pip install -r requirements.txt
     ```
 
 2. Executing Script
@@ -31,6 +31,11 @@ The results are printed to the screen and written to a file.  The file is useful
     --pingtest       Perform Ping Test. Use --ips for a list of IPs to ping (default: False)
     --ips [IPS ...]  List of IPs to ping(Format: 8.8.8.8 9.9.9.9) (default: ['8.8.8.8'])
     --output OUTPUT  CSV File to save results (default: fluker_output.csv)
+    ```
+
+    ```bash
+    # Example
+    python .\fluker.py --pingtest --ips 8.8.8.8 9.9.9.9
     ```
 
     ***Note, on Linux systems `sudo` is required to execute the script***
