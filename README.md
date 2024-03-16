@@ -4,6 +4,35 @@ Gather network switch information for connected port
 
 ## Desciprtion
 
-This tool uses Scapy to construction an LLDP broadcast packet to collect network switch information.  
+Fluke was written to help collect network switch information.  It uses Scapy to send and receive LLDP packets and also send ICMP packets to check connectivity.  
 
-It will also check connectivity to other hosts
+The results are printed to the screen and written to a file.  The file is useful when multiple reports are being tested.  
+
+## Usage
+
+
+
+1. Install the required Python modules
+
+    ```bash
+    python -m pip install -r requirements.txt`
+    ```
+
+2. Executing Script
+
+    ```bash
+    usage: fluker.py [-h] [--passive] [--pingtest] [--ips [IPS ...]] [--output OUTPUT]
+
+    Gather network switch information for connected port
+
+    options:
+    -h, --help       show this help message and exit
+    --passive        Passively collect LLDP Traffic. Don't send broadcast packet (default: False)
+    --pingtest       Perform Ping Test. Use --ips for a list of IPs to ping (default: False)
+    --ips [IPS ...]  List of IPs to ping(Format: 8.8.8.8 9.9.9.9) (default: ['8.8.8.8'])
+    --output OUTPUT  CSV File to save results (default: fluker_output.csv)
+    ```
+
+    ***Note, on Linux systems `sudo` is required to execute the script***
+
+    When fluker is launched, it will get the default interface and a list of all active interfaces.  It will prompt the user to check if the default interface should be used to execute the tests.  If not, it will ask the user to choose from the list of active interfaces.  The user's selection will be written to `.fluker_iface` so that it can be used again.

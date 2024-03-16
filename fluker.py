@@ -1,9 +1,11 @@
 """
 Perform Network Switch Information Gathering and Check Connectivity
-Fluke like script
 """
 import argparse
 import socket
+import datetime
+import csv
+from pathlib import Path
 from scapy.contrib.lldp import *
 from scapy.all import *
 from scapy.layers.inet import IP, ICMP
@@ -20,7 +22,7 @@ BROADCAST_MAC = "FF:FF:FF:FF:FF:FF"
 # Globals to modify
 status_dict = {}
 
-def str2bool(v):
+def str2bool(v:str) -> bool:
     '''Process True/False input from user'''
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -35,10 +37,11 @@ def parse_arguments():
     Parse command line arguments
     '''
 
-    parser = argparse.ArgumentParser(description='Ethernet Port Integration Tool')
+    parser = argparse.ArgumentParser(description='Gather network switch information for connected port', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--passive', action='store_true', help='Passively collect LLDP Traffic.  Don\'t send broadcast packet')
     parser.add_argument('--pingtest', action='store_true', help='Perform Ping Test.  Use --ips for a list of IPs to ping')
     parser.add_argument('--ips', help='List of IPs to ping(Format:  8.8.8.8 9.9.9.9)', nargs='*', default=['8.8.8.8'])
+    parser.add_argument('--output', help="CSV File to save results", default="fluker_output.csv")
     cargs = parser.parse_args()
 
     return cargs
@@ -64,7 +67,7 @@ def get_valid_ips(ip_list:list) -> list:
     return valid_ips
 
 
-def lldp_packet_handler(pkt):
+def lldp_packet_handler(pkt:scapy.layers.l2.Ether) -> None:
     '''Handle LLDP Responses'''
 
     global status_dict
@@ -109,7 +112,7 @@ def lldp_packet_handler(pkt):
                 i = i + 1
 
 
-def switch_discovery(passive_only:bool, iface:dict):
+def switch_discovery(passive_only:bool, iface:dict) -> None:
     '''Collect LLDP Informatioin from Switch'''
 
     # Get information from the interface dict
@@ -161,7 +164,7 @@ def ping(ipaddr:str, interface:str) -> None:
         status_dict[f'ping_{ipaddr}'] = (True, resp.src)
 
     else:
-        status_dict[f'ping_{ipaddr}'] = (False, None)
+        status_dict[f'ping_{ipaddr}'] = (False, ipaddr)
 
 
 def get_default_network_iface() -> tuple:
@@ -197,6 +200,8 @@ def get_network_ifaces() -> dict:
 def get_usable_interface() -> dict:
     '''Prompt the user to select Interface to use for testing'''
 
+    iface_file = Path(".fluker_iface")
+
     # Get all the valid interfaces
     iface_dict = get_network_ifaces()
 
@@ -205,6 +210,16 @@ def get_usable_interface() -> dict:
 
     # Get the Default interface name
     ifacename = iface_dict[ipaddr]['iface_name']
+
+    # Check if file exist
+    if Path(iface_file).is_file():
+        with open(iface_file, 'r', encoding='utf-8') as fd:
+            ipaddr = fd.readline().strip()
+
+        # check if the saved ip address is in the current list of interfaces
+        if ipaddr in iface_dict:
+            ifacename = iface_dict[ipaddr]['iface_name']
+            macaddr = iface_dict[ipaddr]['iface_mac']
 
     question = f"Is this the interface to use for the test: {ifacename}, {ipaddr}, {macaddr} "
     ans = survey.routines.inquire(question, default=True)
@@ -219,10 +234,14 @@ def get_usable_interface() -> dict:
         selected = choice_list[index]
         ipaddr = selected.split(",")[1].strip()
 
+    # Write the saved IP address to the file for later use
+    with open(iface_file, 'w', encoding='utf-8') as fd:
+        fd.write(ipaddr)
+
     return iface_dict[ipaddr]
 
 
-def pretty_print_status(status:dict) -> None:
+def output_status(status:dict, out_file:Path, pdate:str) -> None:
     '''Pretty Print the Status the Screen'''
 
     chassis_id = status.get('chassis_id', 'UNK')
@@ -240,14 +259,46 @@ def pretty_print_status(status:dict) -> None:
     print(f"System Description: {system_description}")
     print(f"VLAN ID: {vlanid}")
 
-    print("\n**** Port Connectivity *****")
+    ping_results = []
     for key,value in status.items():
         if 'ping' in key:
+            print("\n**** Port Connectivity *****")
+
             is_reachable, src_addr = value
+            ping_results.append((src_addr, is_reachable))
+
             if is_reachable:
                 print(f"Ping Successfull for {src_addr }")
             else:
                 print(f"Ping NOT Successfull for {src_addr }")
+
+    # Write results to file
+    if out_file.exists():
+        print(f"\nAppending results to {out_file}")
+        with open(out_file, 'a', encoding='utf-8', newline='') as fd:
+            writer = csv.writer(fd, dialect='excel', quoting=csv.QUOTE_MINIMAL)
+
+            # lazy way of getting reachable status
+            s = ""
+            for p in ping_results:
+                src_addr, is_reachable = p
+                s = s + f"{src_addr} - {is_reachable}\n"
+
+            writer.writerow([pdate, system_name, system_description, chassis_id, port_id, port_description, vlanid, s.strip()])
+
+    else:
+        print(f"\nSaving results to {out_file}")
+        with open(out_file, 'w', encoding='utf-8', newline='') as fd:
+            writer = csv.writer(fd, dialect='excel', quoting=csv.QUOTE_MINIMAL)
+
+            # lazy way of getting reachable status
+            s = ""
+            for p in ping_results:
+                src_addr, is_reachable = p
+                s = s + f"{src_addr} - {is_reachable}\n"
+
+            writer.writerow(["Date", "SystemName", "Description", "ChassisID", "PortID", "PortDescription", "VlanID", "PingStatus"])
+            writer.writerow([pdate, system_name, system_description, chassis_id, port_id, port_description, vlanid, s.strip()])
 
 def main(input_args):
     '''Main Program Function'''
@@ -256,6 +307,10 @@ def main(input_args):
     do_passive = input_args.passive
     do_pingtest = input_args.pingtest
     ip_list = get_valid_ips(input_args.ips)
+    output_file = Path(input_args.output)
+
+    # Get current time
+    time_now = datetime.now().strftime("%d-%m-%Y_%H%M")
 
     # Get the interface to use for testing
     iface_dict = get_usable_interface()
@@ -273,7 +328,7 @@ def main(input_args):
 
     # If we have status, print everything out
     if status_dict:
-        pretty_print_status(status_dict)
+        output_status(status_dict, output_file, time_now)
 
 
 if __name__ == '__main__':
