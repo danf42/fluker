@@ -8,9 +8,11 @@ Fluke was written to help collect network switch information.  It uses Scapy to 
 
 The results are printed to the screen and written to a file.  The file is useful when multiple reports are being tested.  
 
+## Prerequisites
+
+[Npcap](https://npcap.com/) must be installed on Windows and [lippcap](https://www.tcpdump.org/) must be installed on Linux/Mac for `fluker` to identify and communicate with the network interfaces.  [Wireshark](https://www.wireshark.org/) contains the necessary drives for `fluker` to work properly.  If [Wireshark](https://www.wireshark.org/) is already installed on the machine, no futher action is required.  
+
 ## Usage
-
-
 
 1. Install the required Python modules
 
@@ -41,3 +43,4 @@ The results are printed to the screen and written to a file.  The file is useful
     ***Note, on Linux systems `sudo` is required to execute the script***
 
     When fluker is launched, it will get the default interface and a list of all active interfaces.  It will prompt the user to check if the default interface should be used to execute the tests.  If not, it will ask the user to choose from the list of active interfaces.  The user's selection will be written to `.fluker_iface` so that it can be used again.
+
