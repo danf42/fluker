@@ -173,6 +173,8 @@ def get_default_network_iface() -> tuple:
     ipaddr = get_if_addr(conf.iface)
     macaddr = get_if_hwaddr(conf.iface)
 
+    print(f"[*] Default IP is {ipaddr} and default MAC Address is {macaddr}")
+
     return (ipaddr, macaddr)
 
 
@@ -207,6 +209,10 @@ def get_usable_interface() -> dict:
 
     # Get the Default IP and Mac
     ipaddr, macaddr = get_default_network_iface()
+
+    if '0.0.0.0' == ipaddr:
+        print("[!] A valid network interface was not detected.  Please manually check your network interfaces and try again.  Exiting now...")
+        sys.exit(1)
 
     # Get the Default interface name
     ifacename = iface_dict[ipaddr]['iface_name']
